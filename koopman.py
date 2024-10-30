@@ -27,10 +27,9 @@ class koopman:
         if self.basis == 'fourier':
             for i in range(N):
                 for j in range(N):
-                    f = lambda x:  ((i%2)*np.sin((i - 1)/2*x) - ...
-                                    (i%2 + 1)*np.cos(i/2*x))*((j%2)*np.sin((j + 1)/2*x) ...
-                                                              + (j%2 - 1)* np.cos(j/2*x))
-                    E[i, j] = quad(f, 0, 2*np.pi)
+                    f = lambda x:  ((i%2)*np.sin((i + 1)/2*x) - 
+                                    (i%2 - 1)*np.cos(i/2*x))*((j%2)*np.sin((j + 1)/2*x) - (j%2 - 1)* np.cos(j/2*x))
+                    E[i, j] = quad(f, 0, 2*np.pi)[0]
         return E
       
             
@@ -52,8 +51,7 @@ class koopman:
                 for j in range(N):
                     D[i, j] = 0
                     for k in range(K):
-                        D[i, j] += (i%2)*np.sin((i - 1)/2*data[k, j]) - ...
-                                    (i%2 + 1)*np.cos(i/2*data[k, j])
+                        D[i, j] += (i%2)*np.sin((i + 1)*0.5*data[k, j]) - (i%2 - 1)*np.cos(i/2*data[k, j])
                     D[i, j] /= 1/K
         return D
     
@@ -65,6 +63,7 @@ class koopman:
         """
         D = self.compute_D(data)
         E = self.compute_E_l2()
-        self.matrix = np.linalg.pinv(E)@D
+        self.mat = np.linalg.pinv(E)@D
+       
     def sup_dmd(self ):
         pass
