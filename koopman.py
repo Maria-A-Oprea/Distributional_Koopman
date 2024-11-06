@@ -24,12 +24,9 @@ class koopman:
         """
         N = self.dim
         E = np.zeros((N, N))
-        if self.basis == 'fourier':
-            for i in range(N):
-                for j in range(N):
-                    f = lambda x:  ((i%2)*np.sin((i + 1)/2*x) - 
-                                    (i%2 - 1)*np.cos(i/2*x))*((j%2)*np.sin((j + 1)/2*x) - (j%2 - 1)* np.cos(j/2*x))
-                    E[i, j] = quad(f, 0, 2*np.pi)[0]
+        
+        if self.basis == 'indicators':
+            E =np.eye(N)
         return E
       
             
@@ -38,6 +35,12 @@ class koopman:
         Given the data $\pi_j$ and the basis vectors g_i computes 
         E_ij = \int g_i d\pi_j
         """
+        if self.basis == 'fourier':
+            for i in range(N):
+                for j in range(N):
+                    f = lambda x:  ((i%2)*np.sin((i + 1)/2*x) - 
+                                    (i%2 - 1)*np.cos(i/2*x))*((j%2)*np.sin((j + 1)/2*x) - (j%2 - 1)* np.cos(j/2*x))
+                    E[i, j] = quad(f, 0, 2*np.pi)[0]
         pass
     def compute_D(self, data):
         """
@@ -45,6 +48,7 @@ class koopman:
         D_ij = \int g_i d\mu_j
         """
         (K, N) = np.shape(data)
+        print(K)
         D = np.zeros((N, N))
         if self.basis == 'fourier':
             for i in range(N):
@@ -53,6 +57,14 @@ class koopman:
                     for k in range(K):
                         D[i, j] += (i%2)*np.sin((i + 1)*0.5*data[k, j]) - (i%2 - 1)*np.cos(i/2*data[k, j])
                     D[i, j] /= 1/K
+        if self.basis == 'indicators':
+            for i in range(N):
+                for j in range(N):
+                    D[i, j] = 0
+                    for k in range(K):
+                        # check if data point is in support of \mu_j
+                        if i*2*np.pi/N <= data[k, j] <= (i + 1)*2*np.pi/N:
+                            D[i, j] = D[i, j] + 1/K
         return D
     
     def L2_dmd(self, data):
@@ -63,6 +75,8 @@ class koopman:
         """
         D = self.compute_D(data)
         E = self.compute_E_l2()
+        print(D)
+
         self.mat = np.linalg.pinv(E)@D
        
     def sup_dmd(self ):
