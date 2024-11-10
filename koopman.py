@@ -48,23 +48,19 @@ class koopman:
         D_ij = \int g_i d\mu_j
         """
         (K, N) = np.shape(data)
-        print(K)
         D = np.zeros((N, N))
         if self.basis == 'fourier':
             for i in range(N):
                 for j in range(N):
-                    D[i, j] = 0
                     for k in range(K):
                         D[i, j] += (i%2)*np.sin((i + 1)*0.5*data[k, j]) - (i%2 - 1)*np.cos(i/2*data[k, j])
                     D[i, j] /= 1/K
         if self.basis == 'indicators':
             for i in range(N):
                 for j in range(N):
-                    D[i, j] = 0
                     for k in range(K):
-                        # check if data point is in support of \mu_j
-                        if i*2*np.pi/N <= data[k, j] <= (i + 1)*2*np.pi/N:
-                            D[i, j] = D[i, j] + 1/K
+                        if i/N <= data[k, j] < (i + 1)/N:
+                            D[i, j] += 1/K
         return D
     
     def L2_dmd(self, data):
@@ -76,8 +72,26 @@ class koopman:
         D = self.compute_D(data)
         E = self.compute_E_l2()
         print(D)
+        print(E)
 
-        self.mat = np.linalg.pinv(E)@D
+        self.mat = D@np.linalg.inv(E)
        
     def sup_dmd(self ):
         pass
+    
+    def sko(self, data):
+        """ Performs the classis DMD algorithm on trajectory data. 
+            Assumes data = [x_0, x_1, ...., x_M] and computes f_i(x_j) and f_j(x_{i + 1}) to 
+                form the matrices E_ij = f_i(x_j) and D_ij = f_i(x_{j + 1}) 
+            Computes the Koopman operator by K = E^{-1} D
+        """
+        N = self.dim
+        M = np.shape(data)[0]
+        E = np.zeros((N, M - 1))
+        D = np.zeros((N, M - 1))
+        if self.basis == 'indicators':
+            for j in range(M - 1):
+                E[int(np.floor(N*data[j])), j] = 1
+                D[int(np.floor(N*data[ j + 1 ])), j] = 1
+            self.mat = D@np.linalg.pinv(E)
+        print(E, D)
