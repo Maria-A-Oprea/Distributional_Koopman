@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.integrate import quad 
+import scipy as sp
 
 class koopman:
     def __init__(self, N, basis):
@@ -26,42 +27,32 @@ class koopman:
         E = np.zeros((N, N))
         
         if self.basis == 'indicators':
-            E =np.eye(N)
+            E = np.eye(N)
         return E
       
             
-    def compute_E(self, data):
-        """ 
-        Given the data $\pi_j$ and the basis vectors g_i computes 
-        E_ij = \int g_i d\pi_j
+                            
+    def compute_matrix(self, data):
         """
+        Given the type of basis functions (g_i) and measure data (\mu_j) computes
+        Mat_ij = \int g_i d\mu_j
+        """
+        (K, M) = np.shape(data)
+        N = self.dim
+        Mat = np.zeros((N, M))
         if self.basis == 'fourier':
             for i in range(N):
-                for j in range(N):
-                    f = lambda x:  ((i%2)*np.sin((i + 1)/2*x) - 
-                                    (i%2 - 1)*np.cos(i/2*x))*((j%2)*np.sin((j + 1)/2*x) - (j%2 - 1)* np.cos(j/2*x))
-                    E[i, j] = quad(f, 0, 2*np.pi)[0]
-        pass
-    def compute_D(self, data):
-        """
-        Given the type of basis functions and the data (\pi_j, \mu_j) compute
-        D_ij = \int g_i d\mu_j
-        """
-        (K, N) = np.shape(data)
-        D = np.zeros((N, N))
-        if self.basis == 'fourier':
-            for i in range(N):
-                for j in range(N):
+                for j in range(M):
                     for k in range(K):
-                        D[i, j] += (i%2)*np.sin((i + 1)*0.5*data[k, j]) - (i%2 - 1)*np.cos(i/2*data[k, j])
-                    D[i, j] /= 1/K
+                        Mat[i, j] += (i%2)*np.sin((i + 1)*0.5*data[k, j]) - (i%2 - 1)*np.cos(i/2*data[k, j])
+                    Mat[i, j] /= 1/K
         if self.basis == 'indicators':
             for i in range(N):
-                for j in range(N):
+                for j in range(M):
                     for k in range(K):
                         if i/N <= data[k, j] < (i + 1)/N:
-                            D[i, j] += 1/K
-        return D
+                            Mat[i, j] += 1/K
+        return Mat
     
     def L2_dmd(self, data):
         """ implements the DMD algorithm (see section 6.2 in the paper) to compute the matrix C 
@@ -69,15 +60,35 @@ class koopman:
             updates self.matrix accordingly
             takes in the data matrix representing the empirical distributions for $\mu_j$ 
         """
-        D = self.compute_D(data)
+        D = self.compute_matrix(data)
         E = self.compute_E_l2()
         print(D)
-        print(E)
 
         self.mat = D@np.linalg.inv(E)
+        
+    def objective(self, C, E, D):
+        N = self.dim 
+        C = np.reshape(C, (N, N))
+        inner_sup = lambda x:-  np.max(x@(D - C@E))
+        constr = [{'type': 'ineq', 'fun': lambda x: 1 - np.linalg.norm(x,ord = 1)}]
+        res = sp.optimize.minimize(inner_sup, x0 = 1/N*np.random.rand(N, ),  constraints = constr)
+        
+        return res.fun
        
-    def sup_dmd(self ):
-        pass
+    def sup_dmd(self, data0, data1):
+        """
+            implements the supremum norm optimization i.e. problem (4.17)
+            where we take the supremum over \beta and over each column of 
+            (D - EC) multiplied on the left  by \beta
+        """
+        N = self.dim
+        D = self.compute_matrix(data1)
+        E = self.compute_matrix(data0)
+        objective_partial = lambda C:self.objective(C, E=E, D=D)
+        res = sp.optimize.minimize(objective_partial, x0 = np.random.rand(N**2, ) ) 
+        
+        C = np.reshape(res.x, (N, N))
+        return C
     
     def sko(self, data):
         """ Performs the classis DMD algorithm on trajectory data. 
@@ -94,4 +105,4 @@ class koopman:
                 E[int(np.floor(N*data[j])), j] = 1
                 D[int(np.floor(N*data[ j + 1 ])), j] = 1
             self.mat = D@np.linalg.pinv(E)
-        print(E, D)
+        
