@@ -27,7 +27,7 @@ class koopman:
         E = np.zeros((N, N))
         
         if self.basis == 'indicators':
-            E = np.eye(N)
+            E = N*np.eye(N)
         return E
       
             
@@ -51,7 +51,7 @@ class koopman:
                 for j in range(M):
                     for k in range(K):
                         if i/N <= data[k, j] < (i + 1)/N:
-                            Mat[i, j] += 1/K
+                            Mat[i, j] += N/K
         return Mat
     
     def L2_dmd(self, data):
@@ -62,7 +62,6 @@ class koopman:
         """
         D = self.compute_matrix(data)
         E = self.compute_E_l2()
-        print(D)
 
         self.mat = D@np.linalg.inv(E)
         
